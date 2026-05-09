@@ -1,31 +1,37 @@
 #include <zephyr/kernel.h>          
 #include <zephyr/device.h>          
-#include <zephyr/drivers/gpio.h>                 
+#include <zephyr/drivers/gpio.h>    
+#include <pwm_z42.h>                
 
-// CONFIGURAÇÃO PRÉ-MAIN VIA DEVICE TREE
-#define LED_VERDE_NODE 	    DT_ALIAS(led0)	// Define em utilizar o LED verde
-
-// Extrai as especificações completas de cada pino (porta, número, flags) direto do DT
-static const struct gpio_dt_spec led_verde = GPIO_DT_SPEC_GET(LED_VERDE_NODE, gpios);
+#define TPM_MODULE 1000         // Período máximo do PWM
+uint16_t velocidade_100 = TPM_MODULE;
+uint16_t velocidade_50  = TPM_MODULE * 0.5;
+uint16_t velocidade_25  = TPM_MODULE * 0.25;
+uint16_t velocidade_0   = 0;
 
 int main(void){
-    int ret;
 
-    // INICIALIZAÇÃO DE HARDWARE
-    // Confirma se os controladores GPIO estão prontos antes de usá-los
-    if (!gpio_is_ready_dt(&led_verde)) { return 0; }
+    pwm_tpm_Init(TPM2, TPM_PLLFLL, TPM_MODULE, TPM_CLK, PS_128, EDGE_PWM);
 
-    // Configura os pinos como SAÍDA em nível 0
-    
-    ret = gpio_pin_configure_dt(&led_verde, GPIO_OUTPUT_INACTIVE);
-    if (ret < 0){ return 0; }
+    pwm_tpm_Ch_Init(TPM2, 0, TPM_PWM_H, GPIOB, 2);
+
+    const struct device *gpioa_dev = DEVICE_DT_GET(DT_NODELABEL(gpioa));
+
+    gpio_pin_configure(gpioa_dev, 1, GPIO_OUTPUT_ACTIVE); 
+    gpio_pin_configure(gpioa_dev, 2, GPIO_OUTPUT_INACTIVE); 
 
     while (1){
-        gpio_pin_set_dt(&led_verde, 1);		// Estabelece o estado de cada pino para reproduzir a cor desejada
-		k_msleep(3000);	
+        pwm_tpm_CnV(TPM2, 0, velocidade_100);
+        k_msleep(2000); 
 
-        gpio_pin_set_dt(&led_verde, 0);		// Estabelece o estado de cada pino para reproduzir a cor desejada
-		k_msleep(3000);	
+        pwm_tpm_CnV(TPM2, 0, velocidade_50);
+        k_msleep(3000);
+        
+        pwm_tpm_CnV(TPM2, 0, velocidade_25);
+        k_msleep(4000);
+        
+        pwm_tpm_CnV(TPM2, 0, velocidade_0);
+        k_msleep(5000); 
     }
     return 0;
 }
